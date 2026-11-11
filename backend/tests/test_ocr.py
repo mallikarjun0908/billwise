@@ -80,3 +80,71 @@ def test_amount_from_subtotals_when_line_unreadable():
 def test_recorded_md_parsed():
     r = parse_bill_text("Recorded M0 2.75, 2.75 KW\nConsumption(Units) 10\n")
     assert r["recorded_md_kw"] == 2.75
+
+
+def test_subsidy_missed_decimal_corrected():
+    # If dot matrix print drops decimal point in 144.4 -> 1444
+    r = parse_bill_text("Consumption(Units) 150\nEligible for subsidy 1444\n")
+    assert r["subsidy_units"] == 144.4
+
+
+def test_sanctioned_load_decimal_and_various_consumption_labels():
+    text = (
+        "Sanctioned Load 4.1 KW\n"
+        "Pres. Rdg 14500\n"
+        "Prev. Rdg 14380\n"
+        "Units Consumed : 120\n"
+        "Cur.Demand Payable : 424.00\n"
+        "Recorded MD 2.75 KW\n"
+        "Ex.Load Penalty 337.50\n"
+        "FPPCA: 120@0.15, 50@0.05\n"
+        "Tariff: LT-2(a) Domestic\n"
+        "RR No: W2LT12345\n"
+        "Account ID: 1234567890\n"
+    )
+    r = parse_bill_text(text)
+    assert r["sanctioned_load_kw"] == 4.1
+    assert r["units_kwh"] == 120
+    assert r["amount_billed"] == 424.00
+    assert r["recorded_md_kw"] == 2.75
+    assert r["md_penalty"] == 337.50
+    assert r["fppca"] == "120@0.15,50@0.05"
+    assert "LT-2(a)" in r["tariff_category"]
+    assert r["rr_no"] == "W2LT12345"
+    assert r["account_id"] == "1234567890"
+    assert r["confidence"] >= 0.9
+    assert r["missing"] == []
+    assert 120 in r["candidates"]
+
+
+def test_hp_to_kw_conversion():
+    text = "Load 5 HP\nUnits Consumed 100\nCur.Demand Payable 500.00\n"
+    r = parse_bill_text(text)
+    assert r["sanctioned_load_kw"] == 3.73
+
+
+def test_ocr_image_end_to_end():
+    import io
+    from PIL import Image, ImageDraw
+    from app.services.ocr import ocr_image
+
+    img = Image.new("RGB", (600, 400), color=(255, 255, 255))
+    draw = ImageDraw.Draw(img)
+    draw.text((20, 20), "BESCOM SPOT BILLING", fill=(0, 0, 0))
+    draw.text((20, 60), "Sanctioned Load 4.1 KW", fill=(0, 0, 0))
+    draw.text((20, 100), "Consumption(Units) 120", fill=(0, 0, 0))
+    draw.text((20, 140), "Cur.Demand Payable 424.00", fill=(0, 0, 0))
+    draw.text((20, 180), "Eligible for subsidy 144.4", fill=(0, 0, 0))
+
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG")
+    text = ocr_image(buf.getvalue())
+    r = parse_bill_text(text)
+    assert r["sanctioned_load_kw"] == 4.1
+    assert r["units_kwh"] == 120
+    assert r["amount_billed"] == 424.0
+    assert r["subsidy_units"] == 144.4
+    assert r["missing"] == []
+
+
+

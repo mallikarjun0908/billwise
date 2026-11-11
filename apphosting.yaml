@@ -1,0 +1,51 @@
+# Firebase App Hosting configuration
+# https://firebase.google.com/docs/app-hosting/configure
+
+# Container runtime configuration for Cloud Run server instances
+runConfig:
+  # Scale to zero when idle to minimize costs on free tier / development
+  minInstances: 0
+  # Maximum instances to handle traffic spikes safely
+  maxInstances: 10
+  # Number of concurrent requests per instance (FastAPI async handled efficiently)
+  concurrency: 80
+  # Allocated vCPU per container instance
+  cpu: 1
+  # Allocated memory per container instance (sufficient for PyTorch/Pillow OCR processing)
+  memoryMiB: 1024
+
+# Environment variables and secrets passed to the container
+env:
+  - variable: PORT
+    value: "8080"
+    availability:
+      - RUNTIME
+      - BUILD
+  - variable: STORE_UPLOADS
+    value: "false"
+    availability:
+      - RUNTIME
+  - variable: LLM_MODEL
+    value: "claude-sonnet-4-6"
+    availability:
+      - RUNTIME
+  - variable: MAX_UPLOAD_MB
+    value: "10"
+    availability:
+      - RUNTIME
+  # Cloud Database configuration (PostgreSQL / Cloud SQL / Firestore fallback)
+  # When using Cloud SQL with Cloud Secret Manager:
+  # - variable: DATABASE_URL
+  #   secret: billwise-database-url
+  #   availability:
+  #     - RUNTIME
+  # Firebase Cloud Storage Bucket (when STORE_UPLOADS is true):
+  # - variable: FIREBASE_STORAGE_BUCKET
+  #   value: "billwise-app.appspot.com"
+  #   availability:
+  #     - RUNTIME
+  # LLM API Key (optional):
+  # - variable: ANTHROPIC_API_KEY
+  #   secret: anthropic-api-key
+  #   availability:
+  #     - RUNTIME

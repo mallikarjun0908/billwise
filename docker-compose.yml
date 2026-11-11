@@ -11,6 +11,7 @@ services:
   api:
     build: .
     environment:
+      PORT: "8000"
       DATABASE_URL: postgresql://billwise:billwise@db:5432/billwise
       STORE_UPLOADS: "false"
     depends_on: [db]

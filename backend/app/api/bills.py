@@ -10,7 +10,8 @@ from ..db import get_db
 from ..models import Bill, Premises
 from ..services.coach import build_coach
 from ..services.ocr import ocr_image, parse_bill_text
-from ..services.tariff_engine import Tariff, verify_bill
+from ..services.storage import save_upload
+from ..services.tariff_engine import Tariff, compute_net_bill, verify_bill
 
 router = APIRouter(prefix="/api")
 
@@ -38,14 +39,7 @@ async def upload_bill(premises_id: int, file: UploadFile = File(...), db: Sessio
     if len(data) > settings.max_upload_mb * 1024 * 1024:
         raise HTTPException(413, f"File exceeds {settings.max_upload_mb} MB")
 
-    if settings.store_uploads:
-        Path(settings.upload_dir).mkdir(parents=True, exist_ok=True)
-        ext = {"application/pdf": ".pdf", "image/jpeg": ".jpg", "image/png": ".png"}[file.content_type]
-        path = Path(settings.upload_dir) / f"{uuid.uuid4().hex}{ext}"  # never trust the client filename
-        path.write_bytes(data)
-        stored = str(path)
-    else:
-        stored = "not stored"  # privacy: keep the record, drop the photo
+    stored = save_upload(data, file.content_type)
 
     bill = Bill(premises_id=premises_id, file_path=stored, status="uploaded")
     db.add(bill)
@@ -84,6 +78,8 @@ def verify(bill_id: int, units_kwh: float, amount_billed: float, subsidy_units: 
         raise HTTPException(404, "Bill not found")
     tariff = Tariff.from_file(TARIFF_FILE)
     segs = _parse_fppca(fppca)
+    net_bill = compute_net_bill(tariff, units_kwh, bill.premises.sanctioned_load_kw,
+                                subsidy_units, billing_days=billing_days, fppca_segments=segs)
     v = verify_bill(tariff, units_kwh, bill.premises.sanctioned_load_kw, amount_billed,
                     subsidy_units, billing_days=billing_days, fppca_segments=segs)
     bill.units_kwh, bill.amount_billed = units_kwh, amount_billed
@@ -98,7 +94,12 @@ def verify(bill_id: int, units_kwh: float, amount_billed: float, subsidy_units: 
                         billing_days, segs, v.flagged, float(v.variance), md_penalty, recorded_md_kw)
     return {"recomputed": float(v.recomputed), "billed": float(v.billed),
             "variance": float(v.variance), "flagged": v.flagged, "message": v.message,
-            "notes": notes, "coach": coach}
+            "notes": notes, "coach": coach,
+            "breakdown": {
+                "gross": net_bill.gross.as_dict(),
+                "subsidy": net_bill.subsidy.as_dict() if net_bill.subsidy else None,
+                "net": float(net_bill.net),
+            }}
 
 
 @router.post("/scan")

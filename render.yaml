@@ -1,4 +1,24 @@
-# Render Blueprint: creates the web service and its PostgreSQL database together.
+# ==============================================================================
+# DEPRECATION & MIGRATION NOTICE: MIGRATED TO FIREBASE & GOOGLE CLOUD RUN
+# ==============================================================================
+# BillWise has migrated from Render to Firebase Hosting + Google Cloud Run.
+#
+# Reasons for Migration:
+# 1. Zero Cold Starts & Global CDN: Firebase Hosting serves static assets directly
+#    from Google's worldwide Edge CDN with sub-50ms latency.
+# 2. Database Expiration: Render's free PostgreSQL database expires after 30 days.
+#    Firebase / Google Cloud SQL / Firestore have no 30-day auto-deletion.
+# 3. Native Cloud Scale: Cloud Run handles automated scaling (0 to 10 instances)
+#    with integrated healthchecks and Cloud Logging.
+#
+# Deployment on Firebase:
+# - Run `firebase deploy` using the Firebase CLI.
+# - Cloud Run container builds automatically from `Dockerfile`.
+# - See README.md and apphosting.yaml for detailed deployment instructions.
+#
+# Legacy Render Blueprint Configuration (kept for rollback / historical reference):
+# ==============================================================================
+
 databases:
   - name: billwise-db
     plan: free

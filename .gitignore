@@ -7,3 +7,7 @@ __pycache__/
 uploads/
 test_uploads/
 .pytest_cache/
+.firebase/
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*

@@ -6,3 +6,6 @@
 **/test_uploads
 .env
 .git
+.github
+.firebase
+*.log
